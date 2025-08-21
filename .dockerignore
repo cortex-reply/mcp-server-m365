@@ -7,11 +7,6 @@ dist/
 *.seed
 *.pid.lock
 
-# Ignore test files
-test/
-coverage/
-.nyc_output/
-
 # Ignore development configuration
 .env*
 !.env.example
@@ -31,42 +26,18 @@ docs/
 *.md
 !README.md
 
-# Ignore development scripts
-scripts/
-bin/modules/
-
-# Ignore build configuration files
-tsconfig.json
-tsup.config.ts
-vitest.config.js
-eslint.config.js
-.prettierrc*
-
-# Ignore OS and editor files
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
 # Ignore temporary files
 tmp/
 temp/
 *.tmp
-
-# Ignore package manager artifacts
-pnpm-lock.yaml
-package-lock.json
-yarn.lock
+logs/
 
 # Ignore Docker files (to avoid recursive copying)
 Dockerfile*
 docker-compose*.yml
 .dockerignore
 
-# Ignore logs and runtime data
-logs/
-*.log
-
 # Ignore OpenAPI files (generated during build)
 openapi/
+
+.env

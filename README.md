@@ -329,3 +329,22 @@ npm start -- -v
 # Tool filtering
 npm start -- --enabled-tools "excel|calendar"
 ```
+
+
+# Docker
+
+Docker Compose
+
+```bash
+docker-compose down && docker-compose build --no-cache && docker-compose up --detach
+```
+
+```bash
+
+docker run -it --rm \
+  -p 3000:3000 \
+  --name ms365-mcp-server \
+  --env-file .env \
+  mcp-server-m365
+
+```
