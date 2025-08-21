@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  ms365-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ms365-mcp-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Required Azure AD Configuration
+      - MS365_MCP_CLIENT_ID=${MS365_MCP_CLIENT_ID}
+      - MS365_MCP_TENANT_ID=${MS365_MCP_TENANT_ID:-common}
+      
+      # Optional: Client Secret (for client credentials flow)
+      - MS365_MCP_CLIENT_SECRET=${MS365_MCP_CLIENT_SECRET}
+      
+      # Server Configuration
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - READ_ONLY=${READ_ONLY:-false}
+      - ORGANIZATION_MODE=${ORGANIZATION_MODE:-false}
+      
+      # Logging Configuration
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - LOG_CONSOLE=true
+      - LOG_FILE=logs/server.log
+      - LOG_ROTATION=true
+      
+      # Feature Flags
+      - ENABLE_EMAIL=${ENABLE_EMAIL:-true}
+      - ENABLE_CALENDAR=${ENABLE_CALENDAR:-true}
+      - ENABLE_ONEDRIVE=${ENABLE_ONEDRIVE:-true}
+      - ENABLE_EXCEL=${ENABLE_EXCEL:-true}
+      - ENABLE_ONENOTE=${ENABLE_ONENOTE:-true}
+      - ENABLE_TASKS=${ENABLE_TASKS:-true}
+      - ENABLE_TEAMS=${ENABLE_TEAMS:-false}
+      - ENABLE_SHAREPOINT=${ENABLE_SHAREPOINT:-false}
+      
+      # Performance Settings
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30000}
+      - RATE_LIMIT=${RATE_LIMIT:-100}
+    
+    volumes:
+      # Persist logs
+      - ./logs:/app/logs
+      # Optional: Custom configuration
+      - ./config:/app/config:ro
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+
+  

@@ -5,23 +5,77 @@
 Microsoft 365 MCP Server
 
 A Model Context Protocol (MCP) server for interacting with Microsoft 365 and Microsoft Office services through the Graph
-API.
+API using Bearer token authentication.
 
 ## Prerequisites
 
 - Node.js >= 20 (recommended)
-- Node.js 14+ may work with dependency warnings
+- **Azure AD App Registration** (required)
+
+## Setup
+
+### 1. Create Azure AD App Registration
+
+Before using this server, you **must** create an Azure AD app registration:
+
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Navigate to **Azure Active Directory** → **App registrations** → **New registration**
+3. Set application name: "MS365 MCP Server"
+4. Choose supported account types:
+   - **Single tenant**: Only your organization
+   - **Multi-tenant**: Any organization
+   - **Personal + Work accounts**: Any Microsoft account
+5. Click **Register**
+6. Copy the **Application (client) ID** from the Overview page
+
+### 1.1. Configure Authentication (Required for Token Generation)
+
+If you plan to use the token generation scripts, configure authentication:
+
+1. In your app registration, go to **Authentication**
+2. Click **+ Add a platform** → **Mobile and desktop applications**
+3. Add redirect URI: `https://login.microsoftonline.com/common/oauth2/nativeclient`
+4. Under **Advanced settings**, set **Allow public client flows** to **Yes**
+5. Click **Save**
+
+### 2. Configure Environment Variables
+
+Create a `.env` file in the project root and set your client ID:
+
+```bash
+# REQUIRED: Your Azure AD App Registration Client ID
+MS365_MCP_CLIENT_ID=your-client-id-here
+
+# OPTIONAL: Tenant ID (defaults to "common")
+MS365_MCP_TENANT_ID=common
+```
+
+**Important**: The server will fail to start if `MS365_MCP_CLIENT_ID` is not provided.
 
 ## Features
 
-- Authentication via Microsoft Authentication Library (MSAL)
-- Comprehensive Microsoft 365 service integration
-- Read-only mode support for safe operations
-- Tool filtering for granular access control
+- **Bearer Token Authentication**: Simple authentication using Microsoft Graph access tokens
+- **Streamable HTTP MCP**: Runs as a web server supporting streamable MCP protocol
+- **Organization Mode**: Full Microsoft 365 service integration including Teams, SharePoint, etc.
+- **Read-only Mode**: Support for safe operations
+- **Tool Filtering**: Granular access control for specific tools
+
+## Authentication
+
+This server uses Bearer token authentication. You need to provide a valid Microsoft Graph access token in the `Authorization` header:
+
+```
+Authorization: Bearer <your-microsoft-graph-access-token>
+```
+
+To obtain an access token, you can use:
+- Azure CLI: `az account get-access-token --resource https://graph.microsoft.com/`
+- Microsoft Graph Explorer: https://developer.microsoft.com/en-us/graph/graph-explorer
+- Your own OAuth 2.0 implementation using Microsoft Identity Platform
 
 ## Supported Services & Tools
 
-### Personal Account Tools (Available by default)
+### Core Tools (Available by default)
 
 **Email (Outlook)**  
 <sub>list-mail-messages, list-mail-folders, list-mail-folder-messages, get-mail-message, send-mail,
@@ -80,21 +134,22 @@ send-shared-mailbox-mail</sub>
 
 ## Organization/Work Mode
 
-To access work/school features (Teams, SharePoint, etc.), enable organization mode using any of these flags:
+Organization mode is **enabled by default**, providing access to all work/school features including Teams, SharePoint, shared mailboxes, and user management tools.
 
-```json
-{
-  "mcpServers": {
-    "ms365": {
-      "command": "npx",
-      "args": ["-y", "@softeria/ms-365-mcp-server", "--org-mode"]
-    }
-  }
-}
+To disable organization mode, you can use:
+
+```bash
+MS365_MCP_ORG_MODE=false npx @softeria/ms-365-mcp-server --http 3000
 ```
 
-Organization mode must be enabled from the start to access work account features. Without this flag, only personal
-account features (email, calendar, OneDrive, etc.) are available.
+Organization mode provides access to:
+- Teams & Chats
+- SharePoint Sites  
+- Shared Mailboxes
+- User Management
+- Enhanced search capabilities
+
+**Note**: Organization features require appropriate Microsoft Graph scopes in your access token.
 
 ## Shared Mailbox Access
 
@@ -110,226 +165,167 @@ organization.
 
 Example: `list-shared-mailbox-messages` with `user-id` set to `shared-mailbox@company.com`
 
-## Quick Start Example
+## Quick Start
 
-Test login in Claude Desktop:
+### 1. Install Dependencies
 
-![Login example](https://github.com/user-attachments/assets/27f57f0e-57b8-4366-a8d1-c0bdab79900c)
+```bash
+npm install
+```
 
-## Examples
+### 2. Get a Bearer Token
 
-![Image](https://github.com/user-attachments/assets/ed275100-72e8-4924-bcf2-cd8e1b4c6f3a)
+You can obtain a Microsoft Graph bearer token using several methods:
 
-## Integration
+#### Method A: Using the built-in token generator (Interactive)
+```bash
+npm run get-token
+```
 
-### Claude Desktop
+#### Method B: Using Azure CLI
+```bash
+npm run get-token:cli
+# OR manually:
+az login
+az account get-access-token --resource https://graph.microsoft.com/
+```
 
-To add this MCP server to Claude Desktop:
+#### Method C: Using Microsoft Graph Explorer
+Visit [Microsoft Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer) and copy the access token from the request headers.
 
-Edit the config file under Settings > Developer:
+### 3. Start the Server
 
+```bash
+npm start
+# Server will start on http://localhost:3000
+```
+
+### 4. Test the Server
+
+```bash
+# Set your bearer token
+export BEARER_TOKEN="your-access-token-here"
+
+# Test the MCP server
+npm run test:mcp
+```
+
+## Usage
+
+### Making MCP Requests
+
+Send JSON-RPC requests to the `/mcp` endpoint with your bearer token:
+
+```bash
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "id": 1
+  }'
+```
+
+### Available MCP Methods
+
+- `tools/list` - List all available tools
+- `tools/call` - Execute a specific tool
+- `initialize` - Initialize the MCP session
+
+### Example Tool Calls
+
+#### List Recent Emails
 ```json
 {
-  "mcpServers": {
-    "ms365": {
-      "command": "npx",
-      "args": ["-y", "@softeria/ms-365-mcp-server"]
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list-mail-messages",
+    "arguments": {
+      "top": 10
     }
-  }
+  },
+  "id": 1
 }
 ```
 
-### Claude Code CLI
-
-```bash
-claude mcp add ms365 -- npx -y @softeria/ms-365-mcp-server
-```
-
-For other interfaces that support MCPs, please refer to their respective documentation for the correct
-integration method.
-
-### Local Development
-
-For local development or testing:
-
-```bash
-# From the project directory
-claude mcp add ms -- npx tsx src/index.ts --org-mode
-```
-
-Or configure Claude Desktop manually:
-
+#### List Calendars
 ```json
 {
-  "mcpServers": {
-    "ms365": {
-      "command": "node",
-      "args": ["/absolute/path/to/ms-365-mcp-server/dist/index.js", "--org-mode"]
-    }
-  }
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list-calendars",
+    "arguments": {}
+  },
+  "id": 2
 }
 ```
 
-> **Note**: Run `npm run build` after code changes to update the `dist/` folder.
+#### List OneDrive Files
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list-drives",
+    "arguments": {}
+  },
+  "id": 3
+}
+```
 
-### Authentication
+## Token Requirements
 
-> ⚠️ You must authenticate before using tools.
+Your Microsoft Graph access token needs the following scopes for full functionality:
 
-The server supports three authentication methods:
+**Core Scopes:**
+- `User.Read` - Basic profile information
+- `Mail.ReadWrite` - Email operations
+- `Calendars.ReadWrite` - Calendar operations
+- `Files.ReadWrite` - OneDrive operations
 
-#### 1. Device Code Flow (Default)
+**Extended Scopes (for organization features):**
+- `Sites.ReadWrite.All` - SharePoint operations
+- `Team.ReadBasic.All` - Teams operations
+- `Directory.Read.All` - Organization directory
+- `Group.Read.All` - Group operations
 
-For interactive authentication via device code:
+## Configuration
 
-- **MCP client login**:
-  - Call the `login` tool (auto-checks existing token)
-  - If needed, get URL+code, visit in browser
-  - Use `verify-login` tool to confirm
-- **CLI login**:
-  ```bash
-  npx @softeria/ms-365-mcp-server --login
-  ```
-  Follow the URL and code prompt in the terminal.
-
-Tokens are cached securely in your OS credential store (fallback to file).
-
-#### 2. OAuth Authorization Code Flow (HTTP mode only)
-
-When running with `--http`, the server **requires** OAuth authentication:
+### Environment Variables
 
 ```bash
-npx @softeria/ms-365-mcp-server --http 3000
+# Optional: Customize tenant (default: common)
+export MS365_MCP_TENANT_ID="your-tenant-id"
+
+# Optional: Custom client ID (has default)
+export MS365_MCP_CLIENT_ID="your-client-id"
+
+# For client credentials flow only
+export MS365_MCP_CLIENT_SECRET="your-client-secret"
+
+# Server configuration
+export READ_ONLY=true              # Enable read-only mode
+export ENABLED_TOOLS="excel|mail"  # Filter tools with regex
 ```
 
-This mode:
-
-- Advertises OAuth capabilities to MCP clients
-- Provides OAuth endpoints at `/auth/*` (authorize, token, metadata)
-- **Requires** `Authorization: Bearer <token>` for all MCP requests
-- Validates tokens with Microsoft Graph API
-- **Disables** login/logout tools by default (use `--enable-auth-tools` to enable them)
-
-MCP clients will automatically handle the OAuth flow when they see the advertised capabilities.
-
-##### Setting up Azure AD for OAuth Testing
-
-To use OAuth mode with custom Azure credentials (recommended for production), you'll need to set up an Azure AD app
-registration:
-
-1. **Create Azure AD App Registration**:
-
-- Go to [Azure Portal](https://portal.azure.com)
-- Navigate to Azure Active Directory → App registrations → New registration
-- Set name: "MS365 MCP Server"
-
-1. **Configure Redirect URIs**:
-   Add these redirect URIs for testing with MCP Inspector (`npm run inspector`):
-
-- `http://localhost:6274/oauth/callback`
-- `http://localhost:6274/oauth/callback/debug`
-- `http://localhost:3000/callback` (optional, for server callback)
-
-1. **Get Credentials**:
-
-- Copy the **Application (client) ID** from Overview page
-- Go to Certificates & secrets → New client secret → Copy the secret value
-
-1. **Configure Environment Variables**:
-   Create a `.env` file in your project root:
-   ```env
-   MS365_MCP_CLIENT_ID=your-azure-ad-app-client-id-here
-   MS365_MCP_CLIENT_SECRET=your-azure-ad-app-client-secret-here
-   MS365_MCP_TENANT_ID=common
-   ```
-
-With these configured, the server will use your custom Azure app instead of the built-in one.
-
-#### 3. Bring Your Own Token (BYOT)
-
-If you are running ms-365-mcp-server as part of a larger system that manages Microsoft OAuth tokens externally, you can
-provide an access token directly to this MCP server:
+### Command Line Options
 
 ```bash
-MS365_MCP_OAUTH_TOKEN=your_oauth_token npx @softeria/ms-365-mcp-server
+# Basic usage
+npm start
+
+# Custom port
+npm start -- --http 3001
+
+# Read-only mode
+npm start -- --read-only
+
+# Verbose logging
+npm start -- -v
+
+# Tool filtering
+npm start -- --enabled-tools "excel|calendar"
 ```
-
-This method:
-
-- Bypasses the interactive authentication flows
-- Use your pre-existing OAuth token for Microsoft Graph API requests
-- Does not handle token refresh (token lifecycle management is your responsibility)
-
-> **Note**: HTTP mode requires authentication. For unauthenticated testing, use stdio mode with device code flow.
->
-> **Authentication Tools**: In HTTP mode, login/logout tools are disabled by default since OAuth handles authentication.
-> Use `--enable-auth-tools` if you need them available.
-
-## CLI Options
-
-The following options can be used when running ms-365-mcp-server directly from the command line:
-
-```
---login           Login using device code flow
---logout          Log out and clear saved credentials
---verify-login    Verify login without starting the server
---org-mode        Enable organization/work mode from start (includes Teams, SharePoint, etc.)
---work-mode       Alias for --org-mode
---force-work-scopes Backwards compatibility alias for --org-mode (deprecated)
-```
-
-### Server Options
-
-When running as an MCP server, the following options can be used:
-
-```
--v                Enable verbose logging
---read-only       Start server in read-only mode, disabling write operations
---http [port]     Use Streamable HTTP transport instead of stdio (optionally specify port, default: 3000)
-                  Starts Express.js server with MCP endpoint at /mcp
---enable-auth-tools Enable login/logout tools when using HTTP mode (disabled by default in HTTP mode)
---enabled-tools <pattern> Filter tools using regex pattern (e.g., "excel|contact" to enable Excel and Contact tools)
-```
-
-Environment variables:
-
-- `READ_ONLY=true|1`: Alternative to --read-only flag
-- `ENABLED_TOOLS`: Filter tools using a regex pattern (alternative to --enabled-tools flag)
-- `MS365_MCP_ORG_MODE=true|1`: Enable organization/work mode (alternative to --org-mode flag)
-- `MS365_MCP_FORCE_WORK_SCOPES=true|1`: Backwards compatibility for MS365_MCP_ORG_MODE
-- `LOG_LEVEL`: Set logging level (default: 'info')
-- `SILENT=true|1`: Disable console output
-- `MS365_MCP_CLIENT_ID`: Custom Azure app client ID (defaults to built-in app)
-- `MS365_MCP_TENANT_ID`: Custom tenant ID (defaults to 'common' for multi-tenant)
-- `MS365_MCP_OAUTH_TOKEN`: Pre-existing OAuth token for Microsoft Graph API (BYOT method)
-
-## Contributing
-
-We welcome contributions! Before submitting a pull request, please ensure your changes meet our quality standards.
-
-Run the verification script to check all code quality requirements:
-
-```bash
-npm run verify
-```
-
-### For Developers
-
-After cloning the repository, you may need to generate the client code from the Microsoft Graph OpenAPI specification:
-
-```bash
-npm run generate
-```
-
-## Support
-
-If you're having problems or need help:
-
-- Create an [issue](https://github.com/softeria/ms-365-mcp-server/issues)
-- Start a [discussion](https://github.com/softeria/ms-365-mcp-server/discussions)
-- Email: eirikb@eirikb.no
-- Discord: https://discord.gg/WvGVNScrAZ or @eirikb
-
-## License
-
-MIT © 2025 Softeria

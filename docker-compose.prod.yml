@@ -1,0 +1,103 @@
+# Production Docker Compose configuration
+version: '3.8'
+
+services:
+  ms365-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ms365-mcp-server-prod
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Azure AD Configuration
+      - MS365_MCP_CLIENT_ID=${MS365_MCP_CLIENT_ID}
+      - MS365_MCP_TENANT_ID=${MS365_MCP_TENANT_ID}
+      - MS365_MCP_CLIENT_SECRET=${MS365_MCP_CLIENT_SECRET}
+      
+      # Production Settings
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - ORGANIZATION_MODE=true
+      
+      # Security Settings
+      - READ_ONLY=${READ_ONLY:-false}
+      - ENABLE_CORS=false
+      - REQUEST_TIMEOUT=30000
+      - RATE_LIMIT=200
+      
+      # Logging (production optimized)
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - LOG_CONSOLE=false
+      - LOG_FILE=logs/server.log
+      - LOG_ROTATION=true
+      - LOG_MAX_SIZE=10485760
+      - LOG_MAX_FILES=10
+      
+      # Features (all enabled for production)
+      - ENABLE_EMAIL=true
+      - ENABLE_CALENDAR=true
+      - ENABLE_ONEDRIVE=true
+      - ENABLE_EXCEL=true
+      - ENABLE_ONENOTE=true
+      - ENABLE_TASKS=true
+      - ENABLE_TEAMS=true
+      - ENABLE_SHAREPOINT=true
+    
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    
+    networks:
+      - ms365-prod-network
+    
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: ms365-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      ms365-mcp-server:
+        condition: service_healthy
+    networks:
+      - ms365-prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+
+networks:
+  ms365-prod-network:
+    driver: bridge

@@ -1,5 +1,4 @@
 import logger from './logger.js';
-import AuthManager from './auth.js';
 import { refreshAccessToken } from './lib/microsoft-auth.js';
 
 interface GraphRequestOptions {
@@ -29,12 +28,11 @@ interface McpResponse {
 }
 
 class GraphClient {
-  private authManager: AuthManager;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
 
-  constructor(authManager: AuthManager) {
-    this.authManager = authManager;
+  constructor() {
+    // No longer depends on AuthManager
   }
 
   setOAuthTokens(accessToken: string, refreshToken?: string): void {
@@ -43,13 +41,12 @@ class GraphClient {
   }
 
   async makeRequest(endpoint: string, options: GraphRequestOptions = {}): Promise<unknown> {
-    // Use OAuth tokens if available, otherwise fall back to authManager
-    let accessToken =
-      options.accessToken || this.accessToken || (await this.authManager.getToken());
+    // Use OAuth tokens from the bearer token
+    let accessToken = options.accessToken || this.accessToken;
     let refreshToken = options.refreshToken || this.refreshToken;
 
     if (!accessToken) {
-      throw new Error('No access token available');
+      throw new Error('No access token available. Please include Bearer token in Authorization header.');
     }
 
     try {
@@ -73,7 +70,7 @@ class GraphClient {
         const errorText = await response.text();
         if (errorText.includes('scope') || errorText.includes('permission')) {
           throw new Error(
-            `Microsoft Graph API scope error: ${response.status} ${response.statusText} - ${errorText}. This tool requires organization mode. Please restart with --org-mode flag.`
+            `Microsoft Graph API scope error: ${response.status} ${response.statusText} - ${errorText}. This tool requires organization mode. Please ensure your access token has sufficient scopes.`
           );
         }
         throw new Error(
