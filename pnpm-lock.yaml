@@ -12,8 +12,8 @@ importers:
         specifier: ^2.1.0
         version: 2.16.3
       '@modelcontextprotocol/sdk':
-        specifier: ^1.8.0
-        version: 1.17.3
+        specifier: ^1.17.4
+        version: 1.17.4
       '@zodios/core':
         specifier: ^10.9.6
         version: 10.9.6(axios@1.11.0)(zod@3.25.76)
@@ -394,8 +394,8 @@ packages:
     peerDependencies:
       jsep: ^0.4.0||^1.0.0
 
-  '@modelcontextprotocol/sdk@1.17.3':
-    resolution: {integrity: sha512-JPwUKWSsbzx+DLFznf/QZ32Qa+ptfbUlHhRLrBQBAFu9iI1iYvizM4p+zhhRDceSsPutXp4z+R/HPVphlIiclg==}
+  '@modelcontextprotocol/sdk@1.17.4':
+    resolution: {integrity: sha512-zq24hfuAmmlNZvik0FLI58uE5sriN0WWsQzIlYnzSuKDAHFqJtBFrl/LfB1NLgJT5Y7dEBzaX4yAKqOPrcetaw==}
     engines: {node: '>=18'}
 
   '@nodelib/fs.scandir@2.1.5':
@@ -3782,7 +3782,7 @@ snapshots:
     dependencies:
       jsep: 1.4.0
 
-  '@modelcontextprotocol/sdk@1.17.3':
+  '@modelcontextprotocol/sdk@1.17.4':
     dependencies:
       ajv: 6.12.6
       content-type: 1.0.5
