@@ -1,5 +1,6 @@
 // release.config.js
 module.exports = {
+  repositoryUrl: "https://github.com/cortex-reply/mcp-server-m365.git",
   branches: [
     'main',
     {
